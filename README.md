@@ -99,6 +99,8 @@ DISPLAY_NAME="secops-hairpin-mcp-vanilla-agent"
 just deploy-reasoning-engine --display-name "$DISPLAY_NAME"
 ```
 
+Agent Engine uploads the packaged agent to a Cloud Storage staging bucket (`GCP_STAGING_BUCKET` in `.env`, default `gs://<GCP_PROJECT_ID>-agent-engine-staging`). The command creates the bucket in the deployment region if it does not exist yet.
+
 ---
 
 ## Documentation

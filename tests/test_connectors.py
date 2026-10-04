@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
+from gement_mcp_tool_filter_poc.agent import ensure_staging_bucket
 from gement_mcp_tool_filter_poc.agent import list_connectors
 from gement_mcp_tool_filter_poc.agent import register_hairpin_connector
 from gement_mcp_tool_filter_poc.agent import resolve_connector_mcp_url
@@ -155,3 +156,45 @@ def test_cli_register_connector():
     )
     assert result.exit_code == 0
     assert '"name": "operations/123"' in result.output
+
+
+def _fake_storage_module(bucket_exists: bool) -> tuple[MagicMock, MagicMock]:
+  """Builds a stand-in for google.cloud.storage with a canned lookup result."""
+  mock_client = MagicMock()
+  mock_client.lookup_bucket.return_value = (
+      MagicMock() if bucket_exists else None
+  )
+  mock_storage = MagicMock()
+  mock_storage.Client.return_value = mock_client
+  return mock_storage, mock_client
+
+
+def test_ensure_staging_bucket_creates_missing_bucket():
+  """Verifies the staging bucket is created when lookup finds nothing."""
+  mock_storage, mock_client = _fake_storage_module(bucket_exists=False)
+
+  with patch.dict("sys.modules", {"google.cloud.storage": mock_storage}):
+    created = ensure_staging_bucket(
+        "test-proj", "gs://test-proj-agent-engine-staging", "us-central1"
+    )
+
+  assert created is True
+  mock_client.lookup_bucket.assert_called_once_with(
+      "test-proj-agent-engine-staging"
+  )
+  mock_client.create_bucket.assert_called_once_with(
+      "test-proj-agent-engine-staging", location="us-central1"
+  )
+
+
+def test_ensure_staging_bucket_keeps_existing_bucket():
+  """Verifies no bucket is created when it already exists."""
+  mock_storage, mock_client = _fake_storage_module(bucket_exists=True)
+
+  with patch.dict("sys.modules", {"google.cloud.storage": mock_storage}):
+    created = ensure_staging_bucket(
+        "test-proj", "test-proj-agent-engine-staging", "us-central1"
+    )
+
+  assert created is False
+  mock_client.create_bucket.assert_not_called()

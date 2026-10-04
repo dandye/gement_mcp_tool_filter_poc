@@ -156,6 +156,35 @@ def register_hairpin_connector(
   return resp.json()
 
 
+def ensure_staging_bucket(
+    project_id: str,
+    staging_bucket: str,
+    location: str,
+) -> bool:
+  """Creates the Agent Engine staging bucket when it does not exist.
+
+  Vertex AI Agent Engine uploads the serialized agent to a Cloud Storage
+  staging bucket but does not create the bucket itself.
+
+  Args:
+    project_id: GCP project that owns the bucket.
+    staging_bucket: Bucket URI ('gs://name') or bare bucket name.
+    location: Bucket location, normally the Agent Engine region.
+
+  Returns:
+    True if the bucket was created, False if it already existed.
+  """
+  from google.cloud import storage
+
+  bucket_name = staging_bucket.removeprefix("gs://").split("/")[0]
+  client = storage.Client(project=project_id)
+  if client.lookup_bucket(bucket_name) is not None:
+    return False
+  client.create_bucket(bucket_name, location=location)
+  logger.info("Created staging bucket gs://%s in %s", bucket_name, location)
+  return True
+
+
 def create_agent(
     name: str = "secops_hairpin_agent",
     mcp_url: str | None = None,

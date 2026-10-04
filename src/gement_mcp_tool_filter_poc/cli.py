@@ -336,6 +336,7 @@ def deploy_reasoning_engine_cmd(
 
   from gement_mcp_tool_filter_poc.agent import DEFAULT_MCP_SERVER_NAME
   from gement_mcp_tool_filter_poc.agent import DEFAULT_PROJECT_ID
+  from gement_mcp_tool_filter_poc.agent import ensure_staging_bucket
 
   if not project:
     _, default_project = default()
@@ -362,6 +363,15 @@ def deploy_reasoning_engine_cmd(
       f"  Connector: {resolved_server}\n"
       f"  Display Name: {display_name}"
   )
+
+  try:
+    if ensure_staging_bucket(project, bucket, region):
+      console.print(
+          f"[yellow]Created staging bucket {bucket} in {region}[/yellow]"
+      )
+  except Exception as e:
+    console.print(f"[bold red]Staging bucket check failed:[/bold red] {e}")
+    raise typer.Exit(code=1) from e
 
   vertexai.init(project=project, location=region, staging_bucket=bucket)
 

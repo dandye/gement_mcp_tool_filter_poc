@@ -919,6 +919,7 @@ dependencies = [
     { name = "google-api-core" },
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
+    { name = "google-cloud-storage" },
     { name = "google-genai" },
     { name = "httpx" },
     { name = "mcp" },
@@ -938,11 +939,6 @@ dev = [
     { name = "pytype" },
     { name = "ruff" },
 ]
-gcp = [
-    { name = "google-cloud-aiplatform" },
-    { name = "google-cloud-secret-manager" },
-    { name = "google-cloud-storage" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -952,6 +948,7 @@ requires-dist = [
     { name = "google-api-core", specifier = ">=2.0.0" },
     { name = "google-auth", specifier = ">=2.0.0" },
     { name = "google-cloud-aiplatform", specifier = ">=1.50.0" },
+    { name = "google-cloud-storage", specifier = ">=2.14.0" },
     { name = "google-genai" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "mcp", specifier = ">=1.0.0" },
@@ -970,11 +967,6 @@ dev = [
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "pytype", specifier = ">=2024.10.11" },
     { name = "ruff", specifier = ">=0.5.0" },
-]
-gcp = [
-    { name = "google-cloud-aiplatform", specifier = ">=1.50.0" },
-    { name = "google-cloud-secret-manager", specifier = ">=2.18.0" },
-    { name = "google-cloud-storage", specifier = ">=2.14.0" },
 ]
 
 [[package]]
@@ -1170,23 +1162,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f4/1f/a2f23d2c2c0a34dab2e689d11ac4f20d77ac51c4832953beece2bc39e48a/google_cloud_resource_manager-1.19.0.tar.gz", hash = "sha256:68e5d28ed9091ab1adf04a77876b09d553e97a440fba78163f6ce2b5fe5f2558", size = 446420, upload-time = "2026-10-01T18:17:54.309Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/53/47/0bf39ed47f5012f85bf75673e13e0ee29ad39e72e8f55796c42880b9dfe9/google_cloud_resource_manager-1.19.0-py3-none-any.whl", hash = "sha256:74f94950288ff3d04082b4bd514af0632c74b507601e68d0399f35ae2cc8cc2e", size = 395250, upload-time = "2026-10-01T18:12:00.104Z" },
-]
-
-[[package]]
-name = "google-cloud-secret-manager"
-version = "2.31.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "google-api-core", extra = ["grpc"] },
-    { name = "google-auth" },
-    { name = "grpc-google-iam-v1" },
-    { name = "grpcio" },
-    { name = "proto-plus" },
-    { name = "protobuf" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/99/c5/5f1d1940af5e3b3bcf719ade1d7be688ea8718d52fc6d44c2bb67006198f/google_cloud_secret_manager-2.31.0.tar.gz", hash = "sha256:29bb33b48c3b974495a4d015e06b06b126e23232bccd223d678da1e1a861b6e6", size = 286168, upload-time = "2026-10-01T18:18:01.402Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/c6/87d54065389947192be692ce37d65cf899a4540eab44eda5936cb3093cca/google_cloud_secret_manager-2.31.0-py3-none-any.whl", hash = "sha256:945ef53be34b09f94b86eeabca910e19460fb54680cf5e0a792a77d62355e88e", size = 229970, upload-time = "2026-10-01T18:12:09.248Z" },
 ]
 
 [[package]]
