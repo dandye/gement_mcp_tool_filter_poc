@@ -532,8 +532,13 @@ def deploy_reasoning_engine_cmd(
         ),
     )
     console.print(
-        f"[bold green]Successfully deployed Reasoning Engine:[/bold green] "
-        f"{remote_agent.resource_name}"
+        "[bold green]Successfully deployed Reasoning Engine:[/bold green]"
+    )
+    # Never wrap the resource name: a wrapped numeric ID copies incorrectly.
+    console.print(remote_agent.resource_name, soft_wrap=True, highlight=False)
+    console.print(
+        "Set REASONING_ENGINE_ID in .env to this resource name for the"
+        " verification commands in docs/deployment.md."
     )
   except Exception as e:
     console.print(f"[bold red]Deployment failed:[/bold red] {e}")
