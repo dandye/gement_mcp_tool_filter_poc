@@ -1,4 +1,6 @@
 set dotenv-load := true
+# Pass recipe arguments through as "$@" so values with spaces survive.
+set positional-arguments := true
 export UV_NO_CONFIG := "1"
 
 # Default environment file
@@ -32,8 +34,8 @@ sync:
 # ------------------------------------------------------------------------------
 
 # Run unit tests with pytest
-test *args="":
-  uv run pytest {{ args }}
+test *args:
+  uv run pytest "$@"
 
 # Run tests with coverage report
 test-cov:
@@ -62,24 +64,25 @@ typecheck:
 # ------------------------------------------------------------------------------
 
 # Run project CLI
-run *args="":
-  uv run gement-mcp-tool-filter-poc {{ args }}
+run *args:
+  uv run gement-mcp-tool-filter-poc "$@"
 
 # Deploy the Hairpin MCP proxy as an IAM-authenticated Cloud Run service
-deploy-cloud-run service_name="secops-hairpin-mcp" *args="":
+deploy-cloud-run service_name="secops-hairpin-mcp" *args:
   #!/usr/bin/env bash
   set -e
   PROJECT_ID="${GCP_PROJECT_ID:-your-gcp-project-id}"
   REGION="${GCP_LOCATION:-us-central1}"
   UPSTREAM_URL="${UPSTREAM_ONEMCP_URL:-https://us-chronicle.googleapis.com/mcp}"
   echo "Deploying Cloud Run Hairpin MCP proxy {{ service_name }} in $PROJECT_ID ($REGION) with --no-allow-unauthenticated..."
+  # "$1" is service_name; any further arguments are passed through to gcloud.
   gcloud run deploy "{{ service_name }}" \
     --project="$PROJECT_ID" \
     --region="$REGION" \
     --source=. \
     --clear-base-image \
     --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},UPSTREAM_ONEMCP_URL=${UPSTREAM_URL}" \
-    --no-allow-unauthenticated {{ args }}
+    --no-allow-unauthenticated "${@:2}"
 
 # Grant required IAM roles and Cloud Run invoker bindings on target GCP project
 setup-iam account="user@example.com" service_name="secops-hairpin-mcp":
@@ -145,24 +148,24 @@ setup-iam account="user@example.com" service_name="secops-hairpin-mcp":
   fi
 
 # Register the deployed Cloud Run Hairpin MCP proxy in Gemini Enterprise
-register-connector *args="":
-  uv run gement-mcp-tool-filter-poc register-connector {{ args }}
+register-connector *args:
+  uv run gement-mcp-tool-filter-poc register-connector "$@"
 
 # List MCP connectors registered in Gemini Enterprise Agent Registry
-list-connectors *args="":
-  uv run gement-mcp-tool-filter-poc list-connectors {{ args }}
+list-connectors *args:
+  uv run gement-mcp-tool-filter-poc list-connectors "$@"
 
 # List MCP connectors in JSON format
-list-connectors-json *args="":
-  uv run gement-mcp-tool-filter-poc list-connectors --json {{ args }}
+list-connectors-json *args:
+  uv run gement-mcp-tool-filter-poc list-connectors --json "$@"
 
 # Run vanilla ADK agent locally against the Hairpin MCP connector
-run-agent prompt="What tools are available to you in SecOps?" *args="":
-  uv run gement-mcp-tool-filter-poc run-agent "{{ prompt }}" {{ args }}
+run-agent prompt="What tools are available to you in SecOps?" *args:
+  uv run gement-mcp-tool-filter-poc run-agent "$@"
 
 # Deploy vanilla ADK agent using the Hairpin MCP connector to Vertex AI Agent Engine
-deploy-reasoning-engine *args="":
-  uv run gement-mcp-tool-filter-poc deploy-reasoning-engine {{ args }}
+deploy-reasoning-engine *args:
+  uv run gement-mcp-tool-filter-poc deploy-reasoning-engine "$@"
 
 # Delete the Cloud Run service, the Gemini Enterprise connector, and the
 # reasoning engine named by REASONING_ENGINE_ID; print what remains
