@@ -6,6 +6,8 @@
 *.key
 credentials.json
 *service_account*.json
+.gcloud/
+.direnv/
 
 # Python virtual environment
 .venv/

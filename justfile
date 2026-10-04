@@ -1,4 +1,5 @@
 set dotenv-load := true
+export UV_NO_CONFIG := "1"
 
 # Default environment file
 env_file := ".env"
@@ -57,12 +58,97 @@ typecheck:
   uv run pytype src
 
 # ------------------------------------------------------------------------------
-# Execution & CLI Helpers
+# Hairpin MCP Proxy & Gemini Enterprise Connector Operations
 # ------------------------------------------------------------------------------
 
 # Run project CLI
 run *args="":
   uv run gement-mcp-tool-filter-poc {{ args }}
+
+# Deploy the Hairpin MCP proxy as an IAM-authenticated Cloud Run service
+deploy-cloud-run service_name="secops-hairpin-mcp" *args="":
+  #!/usr/bin/env bash
+  set -e
+  PROJECT_ID="${GCP_PROJECT_ID:-your-gcp-project-id}"
+  REGION="${GCP_LOCATION:-us-central1}"
+  UPSTREAM_URL="${UPSTREAM_ONEMCP_URL:-https://us-chronicle.googleapis.com/mcp}"
+  echo "Deploying Cloud Run Hairpin MCP proxy {{ service_name }} in $PROJECT_ID ($REGION) with --no-allow-unauthenticated..."
+  gcloud run deploy "{{ service_name }}" \
+    --project="$PROJECT_ID" \
+    --region="$REGION" \
+    --source=. \
+    --clear-base-image \
+    --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},UPSTREAM_ONEMCP_URL=${UPSTREAM_URL}" \
+    --no-allow-unauthenticated {{ args }}
+
+# Grant required IAM roles and Cloud Run invoker bindings on target GCP project
+setup-iam account="user@example.com" service_name="secops-hairpin-mcp":
+  #!/usr/bin/env bash
+  set -e
+  PROJECT_ID="${GCP_PROJECT_ID:-your-gcp-project-id}"
+  PROJECT_NUMBER="${GCP_PROJECT_NUMBER:-$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')}"
+  REGION="${GCP_LOCATION:-us-central1}"
+  MEMBER="user:{{ account }}"
+  if [[ "{{ account }}" == *"@"*".iam.gserviceaccount.com" ]]; then
+    MEMBER="serviceAccount:{{ account }}"
+  fi
+  echo "Granting project IAM roles in $PROJECT_ID..."
+  for TARGET_MEMBER in \
+    "$MEMBER" \
+    "serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"; do
+    for ROLE in \
+      "roles/discoveryengine.viewer" \
+      "roles/agentregistry.viewer" \
+      "roles/chronicle.viewer" \
+      "roles/aiplatform.user"; do
+      gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+        --member="$TARGET_MEMBER" \
+        --role="$ROLE" \
+        --condition=None \
+        --quiet >/dev/null || true
+    done
+  done
+  echo "Configuring Cloud Run roles/run.invoker bindings on {{ service_name }}..."
+  for INVOKER in \
+    "$MEMBER" \
+    "serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com" \
+    "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-discoveryengine.iam.gserviceaccount.com"; do
+    gcloud run services add-iam-policy-binding "{{ service_name }}" \
+      --project="$PROJECT_ID" \
+      --region="$REGION" \
+      --member="$INVOKER" \
+      --role="roles/run.invoker" \
+      --quiet >/dev/null || true
+  done
+  gcloud run services remove-iam-policy-binding "{{ service_name }}" \
+    --project="$PROJECT_ID" \
+    --region="$REGION" \
+    --member="allUsers" \
+    --role="roles/run.invoker" \
+    --quiet >/dev/null 2>&1 || true
+  echo "IAM configuration complete."
+
+# Register the deployed Cloud Run Hairpin MCP proxy in Gemini Enterprise
+register-connector *args="":
+  uv run gement-mcp-tool-filter-poc register-connector {{ args }}
+
+# List MCP connectors registered in Gemini Enterprise Agent Registry
+list-connectors *args="":
+  uv run gement-mcp-tool-filter-poc list-connectors {{ args }}
+
+# List MCP connectors in JSON format
+list-connectors-json *args="":
+  uv run gement-mcp-tool-filter-poc list-connectors --json {{ args }}
+
+# Run vanilla ADK agent locally against the Hairpin MCP connector
+run-agent prompt="What tools are available to you in SecOps?" *args="":
+  uv run gement-mcp-tool-filter-poc run-agent "{{ prompt }}" {{ args }}
+
+# Deploy vanilla ADK agent using the Hairpin MCP connector to Vertex AI Agent Engine
+deploy-reasoning-engine *args="":
+  uv run gement-mcp-tool-filter-poc deploy-reasoning-engine {{ args }}
 
 # Clean build artifacts, bytecode, and test caches
 clean:

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to AI coding assistants (Gemini, Claude, Cursor, Codex, etc.) working in this repository.
+This file provides guidance to AI coding assistants working in this repository.
 
 ## Google Python Style Guide Standards
 
@@ -43,26 +43,28 @@ This repository strictly complies with the **Google Python Style Guide**:
 │   └── workflows/
 │       └── ci.yml        # CI automation (GitHub Actions with setup-uv)
 ├── AGENTS.md             # AI coding instructions and repo guidelines
-├── justfile              # Task runner (uv sync, test, lint, format, typecheck, run)
+├── Dockerfile            # Cloud Run container definition
+├── justfile              # Task runner (uv sync, test, lint, format, typecheck, deploy)
 ├── pyproject.toml        # PEP 621 + Hatchling + PEP 735 dependency groups + Pyink config
 ├── uv.lock               # Deterministic dependency lockfile
-├── docs/                 # Technical documentation & architecture notes
-│   ├── .gitkeep
-│   ├── architecture.md
-│   └── setup.md
-├── scripts/              # Helper & deployment automation scripts
-│   ├── .gitkeep
+├── docs/
+│   ├── deployment.md                   # Deployment inventory and verification runbook
+│   └── hairpin_mcp_deployment_guide.md # Standalone customer guide for Hairpin MCP
+├── scripts/
 │   └── setup_env.sh
 ├── src/
 │   └── gement_mcp_tool_filter_poc/
 │       ├── __init__.py
-│       ├── __main__.py   # Module execution entrypoint (python -m gement_mcp_tool_filter_poc)
-│       ├── cli.py        # Typer + Rich unified CLI (2-space indent, 80 cols)
-│       ├── core.py       # Core package implementation
-│       └── py.typed      # PEP 561 marker
+│       ├── __main__.py   # Module execution entrypoint
+│       ├── agent.py      # Gemini Enterprise connector helpers and ADK agent factory
+│       ├── cli.py        # Typer + Rich CLI (2-space indent, 80 cols)
+│       ├── hairpin.py    # Cloud Run Hairpin MCP proxy server
+│       ├── py.typed      # PEP 561 marker
+│       └── server.py     # Cloud Run FastAPI entrypoint
 └── tests/
-    ├── conftest.py       # Pytest fixtures and mock setup
-    └── test_basic.py     # Basic test suite
+    ├── conftest.py       # Pytest fixtures
+    ├── test_connectors.py
+    └── test_hairpin.py
 ```
 
 ## Common Commands
@@ -77,5 +79,10 @@ This repository strictly complies with the **Google Python Style Guide**:
 | **Format Check** | `just format-check` | Verify formatting without modifying files |
 | **Lint** | `just lint` | Run Ruff checks + Pyink format verification |
 | **Typecheck** | `just typecheck` | Run Google Pytype static type analysis |
-| **CLI Info** | `just run info` | Print environment status via CLI |
+| **Deploy Cloud Run** | `just deploy-cloud-run` | Deploy Hairpin MCP proxy service to Cloud Run |
+| **Setup IAM** | `just setup-iam` | Configure required IAM and Cloud Run invoker bindings |
+| **Register Connector** | `just register-connector` | Register Hairpin MCP proxy in Gemini Enterprise |
+| **List Connectors** | `just list-connectors` | List Gemini Enterprise MCP connectors |
+| **Run Agent** | `just run-agent` | Run vanilla ADK agent locally against Hairpin MCP |
+| **Deploy Reasoning Engine** | `just deploy-reasoning-engine` | Deploy vanilla ADK agent to Vertex AI Agent Engine |
 | **Clean** | `just clean` | Remove cache files, coverage reports, and build artifacts |
