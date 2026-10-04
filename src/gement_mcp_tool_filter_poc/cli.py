@@ -250,16 +250,35 @@ def run_agent_cmd(
   from google.adk.runners import InMemoryRunner
   from google.genai import types
 
+  from gement_mcp_tool_filter_poc.agent import DEFAULT_LOCATION
   from gement_mcp_tool_filter_poc.agent import create_agent
+  from gement_mcp_tool_filter_poc.agent import resolve_mcp_endpoint
+  from gement_mcp_tool_filter_poc.agent import resolve_project_id
 
   console.print(
       "[bold cyan]Initializing ADK agent with Hairpin MCP connector..."
       "[/bold cyan]"
   )
 
+  resolved_project = resolve_project_id(project)
+  resolved_url, url_source = resolve_mcp_endpoint(
+      mcp_url, resolved_project, location or DEFAULT_LOCATION, server
+  )
+  if resolved_url:
+    console.print(
+        f"MCP endpoint: {resolved_url} (from {url_source})",
+        soft_wrap=True,
+        highlight=False,
+    )
+  else:
+    console.print(
+        f"[yellow]No MCP URL from {url_source}; using the Agent Registry"
+        " toolset directly, which bypasses the Hairpin proxy.[/yellow]"
+    )
+
   agent = create_agent(
-      mcp_url=mcp_url,
-      project_id=project,
+      mcp_url=resolved_url,
+      project_id=resolved_project,
       location=location,
       mcp_server_name=server,
   )
@@ -331,18 +350,13 @@ def deploy_reasoning_engine_cmd(
   os.environ["GRPC_DNS_RESOLVER"] = "native"
 
   import vertexai
-  from google.auth import default
   from vertexai.preview import reasoning_engines
 
   from gement_mcp_tool_filter_poc.agent import DEFAULT_MCP_SERVER_NAME
-  from gement_mcp_tool_filter_poc.agent import DEFAULT_PROJECT_ID
   from gement_mcp_tool_filter_poc.agent import ensure_staging_bucket
+  from gement_mcp_tool_filter_poc.agent import resolve_project_id
 
-  if not project:
-    _, default_project = default()
-    project = os.environ.get(
-        "GOOGLE_CLOUD_PROJECT", default_project or DEFAULT_PROJECT_ID
-    )
+  project = resolve_project_id(project)
 
   resolved_server = (
       server or os.environ.get("MCP_SERVER_NAME") or DEFAULT_MCP_SERVER_NAME
@@ -375,6 +389,12 @@ def deploy_reasoning_engine_cmd(
 
   vertexai.init(project=project, location=region, staging_bucket=bucket)
 
+  # Agent Engine serializes this class with cloudpickle and runs it in a
+  # container where only the `requirements` below are installed; this package
+  # is not uploaded. The class therefore repeats the connector lookup and
+  # header construction from agent.py and hairpin.py instead of importing
+  # them, and resolves the connector at query time so the proxy URL can
+  # change without redeploying the engine.
   class HairpinVanillaReasoningEngineAgent:
     """Vanilla ADK Agent in Vertex AI Agent Engine using Hairpin MCP connector."""
 

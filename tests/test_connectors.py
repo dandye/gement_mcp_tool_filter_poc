@@ -9,6 +9,7 @@ from gement_mcp_tool_filter_poc.agent import ensure_staging_bucket
 from gement_mcp_tool_filter_poc.agent import list_connectors
 from gement_mcp_tool_filter_poc.agent import register_hairpin_connector
 from gement_mcp_tool_filter_poc.agent import resolve_connector_mcp_url
+from gement_mcp_tool_filter_poc.agent import resolve_mcp_endpoint
 from gement_mcp_tool_filter_poc.cli import app
 
 runner = CliRunner()
@@ -198,3 +199,39 @@ def test_ensure_staging_bucket_keeps_existing_bucket():
 
   assert created is False
   mock_client.create_bucket.assert_not_called()
+
+
+def test_resolve_mcp_endpoint_precedence(monkeypatch):
+  """Verifies flag, then HAIRPIN_MCP_URL, then connector lookup."""
+  monkeypatch.setenv("HAIRPIN_MCP_URL", "https://env.example.com/mcp")
+  assert resolve_mcp_endpoint("https://flag.example.com/mcp", "test-proj") == (
+      "https://flag.example.com/mcp",
+      "explicit --mcp-url",
+  )
+  assert resolve_mcp_endpoint(None, "test-proj") == (
+      "https://env.example.com/mcp",
+      "HAIRPIN_MCP_URL",
+  )
+
+  monkeypatch.delenv("HAIRPIN_MCP_URL")
+  monkeypatch.setenv("MCP_SERVER_NAME", "secops-hairpin-mcp")
+  with patch(
+      "gement_mcp_tool_filter_poc.agent.resolve_connector_mcp_url",
+      return_value="https://run.example.com/mcp",
+  ) as mock_resolve:
+    url, source = resolve_mcp_endpoint(None, "test-proj")
+  assert url == "https://run.example.com/mcp"
+  assert source == "Gemini Enterprise connector secops-hairpin-mcp"
+  mock_resolve.assert_called_once_with(
+      project_id="test-proj",
+      location="global",
+      mcp_server_name="secops-hairpin-mcp",
+  )
+
+  with patch(
+      "gement_mcp_tool_filter_poc.agent.resolve_connector_mcp_url",
+      return_value=None,
+  ):
+    url, source = resolve_mcp_endpoint(None, "test-proj")
+  assert url is None
+  assert source.endswith("(not resolved)")

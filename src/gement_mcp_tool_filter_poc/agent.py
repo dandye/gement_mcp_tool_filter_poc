@@ -85,11 +85,77 @@ def resolve_connector_mcp_url(
       ) or dc.get("params", {}).get("instance_uri")
       if isinstance(instance_uri, str) and instance_uri.startswith("http"):
         return instance_uri
+      logger.warning(
+          "Connector %s has no HTTP instance_uri in its dataConnector",
+          collection_id,
+      )
+    else:
+      logger.warning(
+          "Could not read dataConnector for collection %s: HTTP %s %s",
+          collection_id,
+          resp.status_code,
+          resp.text[:200],
+      )
   except Exception as e:
-    logger.debug(
+    logger.warning(
         "Could not resolve instance_uri for %s: %s", mcp_server_name, e
     )
   return None
+
+
+def resolve_project_id(project_id: str | None = None) -> str:
+  """Returns the explicit project ID, else GOOGLE_CLOUD_PROJECT, else ADC.
+
+  Args:
+    project_id: Project ID supplied by the caller, if any.
+
+  Returns:
+    Project ID string (falls back to the placeholder default).
+  """
+  if project_id:
+    return project_id
+  _, default_project = default()
+  return os.environ.get(
+      "GOOGLE_CLOUD_PROJECT", default_project or DEFAULT_PROJECT_ID
+  )
+
+
+def resolve_mcp_endpoint(
+    mcp_url: str | None,
+    project_id: str,
+    location: str = DEFAULT_LOCATION,
+    mcp_server_name: str | None = None,
+) -> tuple[str | None, str]:
+  """Chooses the Hairpin MCP endpoint URL and reports where it came from.
+
+  Precedence: an explicit URL, then HAIRPIN_MCP_URL, then the instance_uri of
+  the Gemini Enterprise connector named by mcp_server_name (or
+  MCP_SERVER_NAME).
+
+  Args:
+    mcp_url: Explicit MCP URL override.
+    project_id: GCP project ID that owns the connector.
+    location: Connector location (for example, 'global').
+    mcp_server_name: Agent Registry server name or Discovery Engine collection
+      ID; defaults to MCP_SERVER_NAME or 'secops-hairpin-mcp'.
+
+  Returns:
+    Tuple of (resolved URL or None, human-readable source description).
+  """
+  if mcp_url:
+    return mcp_url, "explicit --mcp-url"
+  env_url = os.environ.get("HAIRPIN_MCP_URL")
+  if env_url:
+    return env_url, "HAIRPIN_MCP_URL"
+  server = mcp_server_name or os.environ.get(
+      "MCP_SERVER_NAME", DEFAULT_MCP_SERVER_NAME
+  )
+  resolved = resolve_connector_mcp_url(
+      project_id=project_id, location=location, mcp_server_name=server
+  )
+  if resolved:
+    return resolved, f"Gemini Enterprise connector {server}"
+  return None, f"Gemini Enterprise connector {server} (not resolved)"
 
 
 def register_hairpin_connector(
@@ -222,25 +288,16 @@ def create_agent(
   os.environ["GOOGLE_API_USE_MTLS_ENDPOINT"] = "never"
   os.environ["CLOUDSDK_CONTEXT_AWARE_USE_CLIENT_CERTIFICATE"] = "false"
 
-  if not project_id:
-    _, default_project = default()
-    project_id = os.environ.get(
-        "GOOGLE_CLOUD_PROJECT", default_project or DEFAULT_PROJECT_ID
-    )
+  project_id = resolve_project_id(project_id)
   resolved_location = location or DEFAULT_LOCATION
   resolved_server = mcp_server_name or os.environ.get(
       "MCP_SERVER_NAME", DEFAULT_MCP_SERVER_NAME
   )
 
-  resolved_url = (
-      mcp_url
-      or os.environ.get("HAIRPIN_MCP_URL")
-      or resolve_connector_mcp_url(
-          project_id=project_id,
-          location=resolved_location,
-          mcp_server_name=resolved_server,
-      )
+  resolved_url, url_source = resolve_mcp_endpoint(
+      mcp_url, project_id, resolved_location, resolved_server
   )
+  logger.info("MCP endpoint %s (%s)", resolved_url, url_source)
 
   if resolved_url:
     toolset: BaseToolset = McpToolset(
@@ -254,6 +311,8 @@ def create_agent(
         ),
     )
   else:
+    # Without a direct URL, fall back to the Agent Registry toolset for the
+    # named server; this path does not go through the Hairpin proxy.
     if resolved_server.startswith("projects/"):
       server_resource_name = resolved_server
     else:
@@ -278,9 +337,6 @@ def create_agent(
   )
 
 
-create_vanilla_mcp_agent = create_agent
-
-
 def list_connectors(
     project_id: str | None = None,
     location: str | None = None,
@@ -298,12 +354,7 @@ def list_connectors(
   Returns:
     List of dictionary objects describing registered MCP servers.
   """
-  if not project_id:
-    _, default_project = default()
-    project_id = os.environ.get(
-        "GOOGLE_CLOUD_PROJECT", default_project or DEFAULT_PROJECT_ID
-    )
-
+  project_id = resolve_project_id(project_id)
   resolved_location = location or DEFAULT_LOCATION
 
   os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
