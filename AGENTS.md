@@ -44,14 +44,13 @@ This repository strictly complies with the **Google Python Style Guide**:
 │       └── ci.yml        # CI automation (GitHub Actions with setup-uv)
 ├── AGENTS.md             # AI coding instructions and repo guidelines
 ├── Dockerfile            # Cloud Run container definition
-├── justfile              # Task runner (uv sync, test, lint, format, typecheck, deploy)
+├── justfile              # Task runner (uv sync, test, lint, format, typecheck, deploy, teardown)
+├── LICENSE               # Apache License 2.0
 ├── pyproject.toml        # PEP 621 + Hatchling + PEP 735 dependency groups + Pyink config
 ├── uv.lock               # Deterministic dependency lockfile
 ├── docs/
 │   ├── deployment.md                   # Deployment inventory and verification runbook
 │   └── hairpin_mcp_deployment_guide.md # Standalone customer guide for Hairpin MCP
-├── scripts/
-│   └── setup_env.sh
 ├── src/
 │   └── gement_mcp_tool_filter_poc/
 │       ├── __init__.py

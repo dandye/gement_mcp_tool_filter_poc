@@ -98,7 +98,6 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "D101", "D102", "D103"]  # Allow assert and skip docstrings in tests per §3.8.2.1
-"scripts/**/*.py" = ["S603", "S607"]
 
 [tool.ruff.lint.isort]
 force-single-line = true
