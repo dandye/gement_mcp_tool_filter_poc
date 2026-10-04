@@ -149,7 +149,7 @@ The recipe leaves the staging bucket, the container images in Artifact Registry,
 
 ## Documentation
 
-- [Customer guide: Deploying a Hairpin MCP proxy for Gemini Enterprise (`docs/hairpin_mcp_deployment_guide.md`)](./docs/hairpin_mcp_deployment_guide.md)
+- [Companion guide: how the proxy works and what each recipe does (`docs/hairpin_mcp_deployment_guide.md`)](./docs/hairpin_mcp_deployment_guide.md)
 - [Deployment inventory, IAM bindings, and verification runbook (`docs/deployment.md`)](./docs/deployment.md)
 
 ---
@@ -165,7 +165,7 @@ The recipe leaves the staging bucket, the container images in Artifact Registry,
 ├── pyproject.toml        # Project dependencies and Pyink/Ruff/Pytype config
 ├── docs/
 │   ├── deployment.md                   # Deployment inventory and verification runbook
-│   └── hairpin_mcp_deployment_guide.md # Standalone step-by-step customer guide
+│   └── hairpin_mcp_deployment_guide.md # Companion guide to the recipes and hairpin.py
 ├── src/
 │   └── secops_hairpin_mcp/
 │       ├── agent.py      # Gemini Enterprise connector resolution & ADK agent factory

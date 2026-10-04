@@ -50,7 +50,7 @@ This repository strictly complies with the **Google Python Style Guide**:
 ├── uv.lock               # Deterministic dependency lockfile
 ├── docs/
 │   ├── deployment.md                   # Deployment inventory and verification runbook
-│   └── hairpin_mcp_deployment_guide.md # Standalone customer guide for Hairpin MCP
+│   └── hairpin_mcp_deployment_guide.md # Companion guide to the recipes and hairpin.py
 ├── src/
 │   └── secops_hairpin_mcp/
 │       ├── __init__.py
