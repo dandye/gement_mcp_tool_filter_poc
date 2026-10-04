@@ -334,6 +334,7 @@ def deploy_reasoning_engine_cmd(
   from google.auth import default
   from vertexai.preview import reasoning_engines
 
+  from gement_mcp_tool_filter_poc.agent import DEFAULT_MCP_SERVER_NAME
   from gement_mcp_tool_filter_poc.agent import DEFAULT_PROJECT_ID
 
   if not project:
@@ -343,9 +344,7 @@ def deploy_reasoning_engine_cmd(
     )
 
   resolved_server = (
-      server
-      or os.environ.get("MCP_SERVER_NAME")
-      or "agentregistry-00000000-0000-0000-0000-000000000002"
+      server or os.environ.get("MCP_SERVER_NAME") or DEFAULT_MCP_SERVER_NAME
   )
   region = location or os.environ.get("GCP_LOCATION") or "us-central1"
   bucket = (

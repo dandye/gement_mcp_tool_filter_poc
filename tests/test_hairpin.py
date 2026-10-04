@@ -99,18 +99,13 @@ def test_hairpin_http_endpoints():
     assert r_root.status_code == 200
     assert r_root.json()["status"] == "ok"
 
-    r_health = client.get("/healthz")
+    r_health = client.get("/health")
     assert r_health.status_code == 200
     assert r_health.json()["status"] == "ok"
 
-    r_stats = client.get("/stats")
-    assert r_stats.status_code == 200
-    stats_data = r_stats.json()
-    assert stats_data["tool_count"] == 1
-    assert (
-        stats_data["input_and_output_schema_stripped_bytes"]
-        < stats_data["raw_tools_list_bytes"]
-    )
+    # Cloud Run reserves /healthz at the Google Frontend, so the proxy must not
+    # advertise a route there that production traffic can never reach.
+    assert client.get("/healthz").status_code == 404
 
     r_mcp = client.post(
         "/mcp",
@@ -120,6 +115,19 @@ def test_hairpin_http_endpoints():
     mcp_tool = r_mcp.json()["result"]["tools"][0]
     assert "outputSchema" not in mcp_tool
     assert mcp_tool["inputSchema"] == STRIPPED_INPUT_SCHEMA
+
+    r_stats = client.get("/stats")
+    assert r_stats.status_code == 200
+    stats_data = r_stats.json()
+    assert stats_data["tool_count"] == 1
+    assert (
+        stats_data["input_and_output_schema_stripped_bytes"]
+        < stats_data["raw_tools_list_bytes"]
+    )
+    # /stats must measure the same compact JSON that /mcp puts on the wire.
+    assert stats_data["input_and_output_schema_stripped_bytes"] == len(
+        r_mcp.content
+    )
 
 
 def test_build_mcp_auth_headers_and_forwarded_oauth():

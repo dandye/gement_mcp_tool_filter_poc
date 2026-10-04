@@ -1,16 +1,16 @@
 # Deploying a Hairpin MCP proxy for Gemini Enterprise
 
-When you connect an agent directly to the Google Security Operations OneMCP server at `https://us-chronicle.googleapis.com/mcp`, the `tools/list` response returns 71 tools totaling 4.32 MB of JSON. Of that payload, 3.91 MB is `outputSchema` and 258 KB is `inputSchema`.
+When you connect an agent directly to the Google Security Operations OneMCP server at `https://us-chronicle.googleapis.com/mcp`, the `tools/list` response returns 71 tools totaling 4.13 MB of JSON. Of that payload, 3.74 MB is `outputSchema` and 243 KB is `inputSchema`.
 
 When the Agent Development Kit builds Gemini function declarations from those tools, it sends both `inputSchema` and `outputSchema` to Vertex AI. Vertex AI then rejects the request with `400 INVALID_ARGUMENT` because the combined schemas exceed its schema flattening limit.
 
-A Hairpin MCP proxy on Cloud Run fixes this without requiring client-side tool wrappers. The proxy forwards JSON-RPC 2.0 requests to OneMCP, strips `outputSchema` on `tools/list`, and replaces `inputSchema` with a minimal open object definition. The `tools/list` payload drops from 4.32 MB to 143.5 KB while keeping all 71 tool names and descriptions intact. You then register the Cloud Run URL as a `custom_mcp` connector in Gemini Enterprise.
+A Hairpin MCP proxy on Cloud Run fixes this without requiring client-side tool wrappers. The proxy forwards JSON-RPC 2.0 requests to OneMCP, strips `outputSchema` on `tools/list`, and replaces `inputSchema` with a minimal open object definition. The `tools/list` payload drops from 4.13 MB to 143.5 KB while keeping all 71 tool names and descriptions intact. You then register the Cloud Run URL as a `custom_mcp` connector in Gemini Enterprise.
 
 ```mermaid
 flowchart LR
     Agent["ADK Agent / Gemini Enterprise"] -->|JSON-RPC 2.0| Proxy["Cloud Run Hairpin MCP Proxy\nPOST /mcp"]
     Proxy -->|Forwards tools/list & tools/call| OneMCP["Google SecOps OneMCP\nhttps://us-chronicle.googleapis.com/mcp"]
-    OneMCP -->|4.32 MB tools/list| Proxy
+    OneMCP -->|4.13 MB tools/list| Proxy
     Proxy -->|143.5 KB stripped tools/list| Agent
 ```
 
@@ -63,7 +63,6 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi import Header
-from fastapi import HTTPException
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.responses import Response
@@ -179,8 +178,10 @@ async def _forward_rpc(
     return resp.json()
 
 
-@app.get("/healthz")
-async def healthz() -> dict[str, str]:
+# Cloud Run reserves /healthz at the Google Frontend; requests to it never
+# reach the container, so expose the health check at /health instead.
+@app.get("/health")
+async def health() -> dict[str, str]:
   return {"status": "ok", "upstream_url": UPSTREAM_ONEMCP_URL}
 
 

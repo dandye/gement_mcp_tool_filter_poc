@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "gement-mcp-tool-filter-poc"
 version = "0.1.0"
-description = "PoC for disabling MCP connector tools in Gemini Enterprise via ADK"
+description = "Cloud Run Hairpin MCP proxy that strips Google SecOps OneMCP tool schemas for Gemini Enterprise connectors and ADK agents"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }

@@ -11,7 +11,7 @@ This document records the Google Cloud resources and verification commands for d
 | **GCP Project** | `your-gcp-project-id` (`123456789012`) | Primary project hosting Cloud Run, Discovery Engine, Agent Registry, and Vertex AI Agent Engine |
 | **Chronicle Instance** | `00000000-0000-0000-0000-000000000000` (`us`) | Target Google SecOps SIEM and SOAR customer instance |
 | **Cloud Run Service** | `secops-hairpin-mcp` (`us-central1`) | Deployed with `--no-allow-unauthenticated` (`https://secops-hairpin-mcp-123456789012.us-central1.run.app`) |
-| **Hairpin MCP Endpoint** | `https://secops-hairpin-mcp-123456789012.us-central1.run.app/mcp` | Proxies `https://us-chronicle.googleapis.com/mcp` (`71` tools, `143,464 B`, `-96.68%` vs `4.32 MB` raw) |
+| **Hairpin MCP Endpoint** | `https://secops-hairpin-mcp-123456789012.us-central1.run.app/mcp` | Proxies `https://us-chronicle.googleapis.com/mcp` (`71` tools, `143,464 B`, `-96.52%` vs `4.13 MB` raw) |
 | **Hairpin Stats Endpoint** | `https://secops-hairpin-mcp-123456789012.us-central1.run.app/stats` | Live payload size comparison endpoint |
 | **Discovery Engine Connector (Hairpin)** | `projects/123456789012/locations/global/collections/secops-hairpin-mcp/dataConnector` | Registered `custom_mcp` (`BYO_MCP`) connector pointing to the Cloud Run Hairpin MCP endpoint |
 | **Agent Registry MCP Server (Hairpin)** | `projects/your-gcp-project-id/locations/global/mcpServers/agentregistry-00000000-0000-0000-0000-000000000002` | Synced Agent Registry catalog entry for `secops-hairpin-mcp` |
@@ -128,24 +128,33 @@ direnv exec . just deploy-reasoning-engine
 
 ## 5. Verification commands
 
-### Check Cloud Run Hairpin MCP payload stats
+### Check Cloud Run Hairpin MCP health and payload stats
+
+Cloud Run reserves `/healthz`, so the proxy serves its health check at `/health` (and `/`). `/stats` reports byte counts measured with the same compact JSON encoding the `/mcp` endpoint uses, so `input_and_output_schema_stripped_bytes` equals the size of the proxied `tools/list` response body:
 
 ```bash
-STATS_URL="https://secops-hairpin-mcp-123456789012.us-central1.run.app/stats"
+SERVICE_URL="https://secops-hairpin-mcp-123456789012.us-central1.run.app"
 ID_TOKEN="$(direnv exec . gcloud auth print-identity-token)"
-curl -s -H "Authorization: Bearer ${ID_TOKEN}" "$STATS_URL" | jq .
+curl -s -H "Authorization: Bearer ${ID_TOKEN}" "${SERVICE_URL}/health" | jq .
+curl -s -H "Authorization: Bearer ${ID_TOKEN}" "${SERVICE_URL}/stats" | jq .
 ```
 
 Expected output:
 
 ```json
 {
+  "status": "ok",
+  "service": "secops-hairpin-mcp",
+  "upstream_url": "https://us-chronicle.googleapis.com/mcp",
+  "default_project_id": "your-gcp-project-id"
+}
+{
   "tool_count": 71,
-  "raw_tools_list_bytes": 4315369,
-  "output_schema_stripped_bytes": 337721,
+  "raw_tools_list_bytes": 4125239,
+  "output_schema_stripped_bytes": 386818,
   "input_and_output_schema_stripped_bytes": 143464,
-  "reduction_bytes": 4171905,
-  "reduction_percent": 96.68
+  "reduction_bytes": 3981775,
+  "reduction_percent": 96.52
 }
 ```
 

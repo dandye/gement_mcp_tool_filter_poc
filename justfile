@@ -92,7 +92,8 @@ setup-iam account="user@example.com" service_name="secops-hairpin-mcp":
   if [[ "{{ account }}" == *"@"*".iam.gserviceaccount.com" ]]; then
     MEMBER="serviceAccount:{{ account }}"
   fi
-  echo "Granting project IAM roles in $PROJECT_ID..."
+  WARNINGS=0
+  echo "Granting project IAM roles in $PROJECT_ID (project number $PROJECT_NUMBER)..."
   for TARGET_MEMBER in \
     "$MEMBER" \
     "serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
@@ -102,11 +103,14 @@ setup-iam account="user@example.com" service_name="secops-hairpin-mcp":
       "roles/agentregistry.viewer" \
       "roles/chronicle.viewer" \
       "roles/aiplatform.user"; do
-      gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+      if ! gcloud projects add-iam-policy-binding "$PROJECT_ID" \
         --member="$TARGET_MEMBER" \
         --role="$ROLE" \
         --condition=None \
-        --quiet >/dev/null || true
+        --quiet >/dev/null; then
+        echo "WARNING: could not grant $ROLE to $TARGET_MEMBER"
+        WARNINGS=$((WARNINGS + 1))
+      fi
     done
   done
   echo "Configuring Cloud Run roles/run.invoker bindings on {{ service_name }}..."
@@ -115,20 +119,28 @@ setup-iam account="user@example.com" service_name="secops-hairpin-mcp":
     "serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
     "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com" \
     "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-discoveryengine.iam.gserviceaccount.com"; do
-    gcloud run services add-iam-policy-binding "{{ service_name }}" \
+    if ! gcloud run services add-iam-policy-binding "{{ service_name }}" \
       --project="$PROJECT_ID" \
       --region="$REGION" \
       --member="$INVOKER" \
       --role="roles/run.invoker" \
-      --quiet >/dev/null || true
+      --quiet >/dev/null; then
+      echo "WARNING: could not grant roles/run.invoker on {{ service_name }} to $INVOKER"
+      WARNINGS=$((WARNINGS + 1))
+    fi
   done
+  # Removing allUsers fails harmlessly when the binding does not exist.
   gcloud run services remove-iam-policy-binding "{{ service_name }}" \
     --project="$PROJECT_ID" \
     --region="$REGION" \
     --member="allUsers" \
     --role="roles/run.invoker" \
     --quiet >/dev/null 2>&1 || true
-  echo "IAM configuration complete."
+  if [ "$WARNINGS" -gt 0 ]; then
+    echo "IAM configuration finished with $WARNINGS warning(s); review the output above."
+  else
+    echo "IAM configuration complete."
+  fi
 
 # Register the deployed Cloud Run Hairpin MCP proxy in Gemini Enterprise
 register-connector *args="":

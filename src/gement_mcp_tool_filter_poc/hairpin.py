@@ -373,6 +373,29 @@ proxy = HairpinMcpProxy()
 router = APIRouter()
 
 
+def _wire_bytes(payload: dict[str, Any]) -> int:
+  """Returns the byte length of payload serialized as the /mcp endpoint sends it.
+
+  Uses the same compact UTF-8 JSON encoding as fastapi.responses.JSONResponse
+  so that /stats figures match the bytes observed on the wire.
+
+  Args:
+    payload: JSON-RPC 2.0 response dictionary.
+
+  Returns:
+    Encoded payload length in bytes.
+  """
+  return len(
+      json.dumps(
+          payload,
+          ensure_ascii=False,
+          allow_nan=False,
+          indent=None,
+          separators=(",", ":"),
+      ).encode("utf-8")
+  )
+
+
 @router.get("/stats")
 async def stats(
     authorization: str | None = Header(default=None),
@@ -393,9 +416,9 @@ async def stats(
       raw_rpc, strip_input=True, strip_output=True
   )
 
-  raw_bytes = len(json.dumps(raw_rpc).encode("utf-8"))
-  output_stripped_bytes = len(json.dumps(output_stripped_rpc).encode("utf-8"))
-  both_stripped_bytes = len(json.dumps(both_stripped_rpc).encode("utf-8"))
+  raw_bytes = _wire_bytes(raw_rpc)
+  output_stripped_bytes = _wire_bytes(output_stripped_rpc)
+  both_stripped_bytes = _wire_bytes(both_stripped_rpc)
 
   return {
       "tool_count": len(raw_tools),
@@ -521,9 +544,13 @@ hairpin_app.include_router(router)
 
 
 @hairpin_app.get("/")
-@hairpin_app.get("/healthz")
-async def healthz() -> dict[str, str]:
-  """Health check and root status endpoint."""
+@hairpin_app.get("/health")
+async def health() -> dict[str, str]:
+  """Health check and root status endpoint.
+
+  Served at /health rather than /healthz because Cloud Run reserves /healthz
+  and answers it at the Google Frontend without reaching the container.
+  """
   return {
       "status": "ok",
       "service": "secops-hairpin-mcp",

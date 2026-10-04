@@ -1,12 +1,12 @@
 # Gemini Enterprise Hairpin MCP Proxy for Google SecOps
 
-When you connect an Agent Development Kit (ADK) agent or Gemini Enterprise connector directly to the Google Security Operations OneMCP server at `https://us-chronicle.googleapis.com/mcp`, the `tools/list` response returns 71 tools totaling 4.32 MB of JSON (`3.91 MB` of `outputSchema` and `258 KB` of `inputSchema`).
+When you connect an Agent Development Kit (ADK) agent or Gemini Enterprise connector directly to the Google Security Operations OneMCP server at `https://us-chronicle.googleapis.com/mcp`, the `tools/list` response returns 71 tools totaling 4.13 MB of JSON (`3.74 MB` of `outputSchema` and `243 KB` of `inputSchema`).
 
 When ADK converts those MCP tool definitions into Gemini function declarations, it passes both `inputSchema` and `outputSchema` to Vertex AI. Vertex AI rejects the request with `400 INVALID_ARGUMENT` because the combined schemas exceed the model's schema state limit.
 
 This repository provides a **Hairpin MCP Proxy** on Cloud Run that unblocks using Gemini Enterprise MCP connectors with Google SecOps OneMCP:
 1. **Strips bloated schemas server-side**: Forwards JSON-RPC 2.0 requests to `https://us-chronicle.googleapis.com/mcp`, removes `outputSchema` from `tools/list`, and replaces `inputSchema` with an open object stub (`{"type": "object", "additionalProperties": true}`).
-2. **Reduces `tools/list` payload by 96.68%**: Shrinks the `tools/list` payload from `4,315,369 bytes` (`4.32 MB`) to `143,464 bytes` (`143.5 KB`) while preserving all 71 tool names, descriptions, and annotations.
+2. **Reduces `tools/list` payload by 96.52%**: Shrinks the `tools/list` payload from `4,125,239 bytes` (`4.13 MB`) to `143,464 bytes` (`143.5 KB`) while preserving all 71 tool names, descriptions, and annotations.
 3. **Registers as a Gemini Enterprise connector**: Registers in Discovery Engine as a `custom_mcp` (`BYO_MCP`) connector and syncs automatically to the Gemini Enterprise Agent Registry catalog.
 4. **Enforces Cloud Run IAM (`--no-allow-unauthenticated`)**: Requires `roles/run.invoker` with an OIDC ID token in `Authorization` while forwarding the caller's OAuth 2.0 access token to OneMCP via `X-Forwarded-Authorization`.
 
@@ -15,7 +15,7 @@ flowchart LR
     Agent["ADK Agent / Vertex AI Agent Engine"] -->|1. Resolve connector URL| GE["Gemini Enterprise\n(Agent Registry & Discovery Engine)"]
     Agent -->|2. JSON-RPC 2.0 + OIDC & OAuth| Proxy["Cloud Run Hairpin MCP Proxy\nPOST /mcp (--no-allow-unauthenticated)"]
     Proxy -->|3. Forward JSON-RPC 2.0| OneMCP["Google SecOps OneMCP\nhttps://us-chronicle.googleapis.com/mcp"]
-    OneMCP -->|4.32 MB tools/list| Proxy
+    OneMCP -->|4.13 MB tools/list| Proxy
     Proxy -->|143.5 KB stripped tools/list| Agent
 ```
 
@@ -30,7 +30,14 @@ just setup
 direnv allow .
 ```
 
-Update `.env` with your `GCP_PROJECT_ID`, `GCP_PROJECT_NUMBER`, and `CHRONICLE_CUSTOMER_ID`.
+`.envrc` activates `./.venv` and isolates gcloud configuration and Application Default Credentials to `./.gcloud` (gitignored). Edit `.env` and set `GCP_PROJECT_ID` and `CHRONICLE_CUSTOMER_ID`; `GCP_PROJECT_NUMBER` and `CLOUDSDK_CORE_ACCOUNT` are optional. Then authenticate once from inside the repository directory so the credentials land in the isolated configuration:
+
+```bash
+ACCOUNT="user@example.com"
+gcloud auth login "$ACCOUNT" --update-adc
+```
+
+In non-interactive shells (CI, scripts, coding agents) the direnv hook does not run; prefix commands with `direnv exec .` to load the same environment.
 
 ### 2. Deploy the Hairpin MCP proxy to Cloud Run
 
