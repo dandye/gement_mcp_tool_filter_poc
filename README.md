@@ -21,6 +21,28 @@ flowchart LR
 
 ---
 
+## Prerequisites
+
+Local tools: [`gcloud`](https://cloud.google.com/sdk/docs/install), [`uv`](https://docs.astral.sh/uv/), [`just`](https://just.systems/), [`direnv`](https://direnv.net/), `curl`, and `jq` (verification commands). `uv` installs Python 3.11 on demand.
+
+Google Cloud project state:
+
+- A Google SecOps (Chronicle) instance linked to the project, and Gemini Enterprise available in the project. Confirm with your Google account team that the project can register custom (`BYO_MCP`) connectors and call the SecOps OneMCP endpoint.
+- APIs enabled:
+
+```bash
+PROJECT_ID="your-gcp-project-id"
+gcloud services enable \
+  run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
+  discoveryengine.googleapis.com agentregistry.googleapis.com \
+  aiplatform.googleapis.com chronicle.googleapis.com storage.googleapis.com \
+  --project="$PROJECT_ID"
+```
+
+- An operator account that can deploy Cloud Run services, grant project IAM bindings (`just setup-iam` edits the project policy), create Cloud Storage buckets, and create Discovery Engine collections and Vertex AI reasoning engines. `roles/owner` on a sandbox project satisfies all of these.
+
+---
+
 ## Quickstart: Repeat the Hairpin MCP setup
 
 ### 1. Initialize local environment
@@ -30,7 +52,7 @@ just setup
 direnv allow .
 ```
 
-`.envrc` activates `./.venv` and isolates gcloud configuration and Application Default Credentials to `./.gcloud` (gitignored). Edit `.env` and set `GCP_PROJECT_ID` and `CHRONICLE_CUSTOMER_ID`; `GCP_PROJECT_NUMBER` and `CLOUDSDK_CORE_ACCOUNT` are optional. Then authenticate once from inside the repository directory so the credentials land in the isolated configuration:
+`.envrc` activates `./.venv` and isolates gcloud configuration and Application Default Credentials to `./.gcloud` (gitignored). Edit `.env` and set `GCP_PROJECT_ID`; `CHRONICLE_CUSTOMER_ID` is only substituted into example prompts and verification commands, and `GCP_PROJECT_NUMBER`, `CLOUDSDK_CORE_ACCOUNT`, and `GCP_STAGING_BUCKET` are optional. Then authenticate once from inside the repository directory so the credentials land in the isolated configuration:
 
 ```bash
 ACCOUNT="user@example.com"
@@ -50,13 +72,15 @@ just deploy-cloud-run "$SERVICE_NAME"
 
 ### 3. Configure IAM and Cloud Run invoker bindings
 
-Grant the required Discovery Engine, Agent Registry, Chronicle, Vertex AI, and `roles/run.invoker` permissions to your caller identity and the runtime service agents:
+`just setup-iam` grants `roles/discoveryengine.viewer`, `roles/agentregistry.viewer`, `roles/chronicle.viewer`, `roles/aiplatform.user`, `roles/mcp.toolUser`, and `roles/serviceusage.serviceUsageConsumer` on the project to your account, the default compute service account (the Cloud Run runtime identity), and the Vertex AI Agent Engine service agent. It then grants `roles/run.invoker` on the service to those identities and the Discovery Engine service agent, and removes any `allUsers` invoker binding:
 
 ```bash
 ACCOUNT="user@example.com"
 SERVICE_NAME="secops-hairpin-mcp"
 just setup-iam "$ACCOUNT" "$SERVICE_NAME"
 ```
+
+The flow was validated in a project where some of these bindings already existed. If a later step fails with `PERMISSION_DENIED`, the error names the missing permission; add the corresponding role for the identity shown in the error and rerun the step.
 
 Retrieve the deployed Cloud Run URL and set `HAIRPIN_MCP_URL` in `.env`:
 
@@ -71,14 +95,13 @@ echo "HAIRPIN_MCP_URL=$HAIRPIN_MCP_URL"
 
 ### 4. Register the Hairpin MCP connector in Gemini Enterprise
 
-Register the Cloud Run `/mcp` endpoint as a `custom_mcp` (`BYO_MCP`) connector in Discovery Engine (`collections:setUpDataConnector`):
+Register the Cloud Run `/mcp` endpoint as a `custom_mcp` (`BYO_MCP`) connector in Discovery Engine (`collections:setUpDataConnector`). The `--hairpin-url` flag is only needed when `HAIRPIN_MCP_URL` is not yet set in `.env`:
 
 ```bash
-HAIRPIN_MCP_URL="https://secops-hairpin-mcp-123456789012.us-central1.run.app/mcp"
 just register-connector --hairpin-url "$HAIRPIN_MCP_URL"
 ```
 
-Verify that the connector is synced into Gemini Enterprise Agent Registry:
+Verify that the connector is synced into Gemini Enterprise Agent Registry (the entry appears as `Custom MCP Server - secops-hairpin-mcp`, usually within a minute):
 
 ```bash
 just list-connectors
@@ -99,7 +122,28 @@ DISPLAY_NAME="secops-hairpin-mcp-vanilla-agent"
 just deploy-reasoning-engine --display-name "$DISPLAY_NAME"
 ```
 
-Agent Engine uploads the packaged agent to a Cloud Storage staging bucket (`GCP_STAGING_BUCKET` in `.env`, default `gs://<GCP_PROJECT_ID>-agent-engine-staging`). The command creates the bucket in the deployment region if it does not exist yet.
+Agent Engine uploads the packaged agent to a Cloud Storage staging bucket (`GCP_STAGING_BUCKET` in `.env`, default `gs://<GCP_PROJECT_ID>-agent-engine-staging`). The command creates the bucket in the deployment region if it does not exist yet. Copy the printed resource name into `REASONING_ENGINE_ID` in `.env`; the verification commands in [`docs/deployment.md`](./docs/deployment.md) and `just teardown` read it from there.
+
+### 6. Teardown
+
+Delete the reasoning engine named by `REASONING_ENGINE_ID`, the Discovery Engine collection (which removes the Agent Registry entry), and the Cloud Run service:
+
+```bash
+SERVICE_NAME="secops-hairpin-mcp"
+COLLECTION_ID="secops-hairpin-mcp"
+just teardown "$SERVICE_NAME" "$COLLECTION_ID"
+```
+
+The recipe leaves the staging bucket, the container images in Artifact Registry, and the Cloud Build source uploads in place and prints the commands that remove them.
+
+---
+
+## Security notes
+
+- The service is deployed with `--no-allow-unauthenticated`. Only identities with `roles/run.invoker` on the service can reach it; Cloud Run verifies the OIDC ID token in `Authorization` before the container sees the request.
+- The proxy calls OneMCP with the OAuth 2.0 access token from `X-Forwarded-Authorization` when present (the ADK agent and Agent Engine send it), so SecOps enforces the end user's Chronicle permissions. When no token is forwarded, the proxy falls back to the Cloud Run runtime service account's credentials. Any invoker that omits the header therefore acts with that service account's Chronicle role (`roles/chronicle.viewer` as granted by `just setup-iam`); keep the invoker list short.
+- `tools/list` responses are cached in the container for 300 seconds and shared across callers; `tools/call` requests are never cached.
+- Stripping can be disabled per request for comparison with `POST /mcp?strip_input=false&strip_output=false`. `POST /` is an alias for `POST /mcp`.
 
 ---
 
@@ -148,6 +192,7 @@ Agent Engine uploads the packaged agent to a Cloud Storage staging bucket (`GCP_
 | `just list-connectors-json` | List MCP connectors in JSON format |
 | `just run-agent [prompt]` | Run the vanilla ADK agent locally against the Hairpin MCP connector |
 | `just deploy-reasoning-engine` | Deploy the vanilla ADK agent to Vertex AI Agent Engine |
+| `just teardown [service_name] [collection_id]` | Delete the reasoning engine (`REASONING_ENGINE_ID`), connector collection, and Cloud Run service |
 | `just test` | Run pytest unit test suite |
 | `just format` | Format code in-place with Pyink (2 spaces, 80 columns) |
 | `just lint` | Run Ruff checks and Pyink format verification |

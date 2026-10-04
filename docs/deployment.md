@@ -6,6 +6,8 @@ This document records the Google Cloud resources and verification commands for d
 
 ## 1. Deployed resource reference
 
+Every identifier below is a placeholder (`your-gcp-project-id`, `123456789012`, `9876543210987654321`, all-zero UUIDs). Replace them with the values printed by the deployment commands in section 4.
+
 | Component | Resource Name / URL | Details |
 | :--- | :--- | :--- |
 | **GCP Project** | `your-gcp-project-id` (`123456789012`) | Primary project hosting Cloud Run, Discovery Engine, Agent Registry, and Vertex AI Agent Engine |
@@ -42,45 +44,49 @@ graph TD
 
 ## 3. Required IAM bindings
 
-### Cloud Run default compute service account
-`123456789012-compute@developer.gserviceaccount.com` executes outbound requests from the Cloud Run Hairpin MCP proxy to `https://us-chronicle.googleapis.com/mcp` when the caller does not pass an explicit `ya29.*` OAuth access token:
+`just setup-iam ACCOUNT SERVICE_NAME` applies every binding in this section; the commands below are the equivalent `gcloud` calls for review or for environments where the recipe cannot run. All values are placeholders.
+
+### Project roles
+
+| Identity | Purpose | Roles granted on the project |
+| :--- | :--- | :--- |
+| `user:user@example.com` | Operator running the CLI and `just run-agent` | `roles/discoveryengine.viewer`, `roles/agentregistry.viewer`, `roles/chronicle.viewer`, `roles/aiplatform.user`, `roles/mcp.toolUser`, `roles/serviceusage.serviceUsageConsumer` |
+| `serviceAccount:123456789012-compute@developer.gserviceaccount.com` | Cloud Run runtime identity; calls OneMCP when no OAuth token is forwarded | same six roles |
+| `serviceAccount:service-123456789012@gcp-sa-aiplatform-re.iam.gserviceaccount.com` | Vertex AI Agent Engine runtime; resolves the connector and calls the proxy | same six roles |
+
+Why the last two roles: `roles/mcp.toolUser` carries `mcp.tools.call`, the permission to call tools on MCP servers enabled in the project, which every OneMCP `tools/call` needs. `roles/serviceusage.serviceUsageConsumer` carries `serviceusage.services.use`, which Google APIs check whenever a request sets `X-Goog-User-Project`; the proxy, the agent, and the Agent Engine class all set that header. Grant `roles/chronicle.editor` instead of `roles/chronicle.viewer` to the compute service account if agents must create cases or modify rules through OneMCP without a forwarded user token.
 
 ```bash
 PROJECT_ID="your-gcp-project-id"
-CLOUD_RUN_SA="serviceAccount:123456789012-compute@developer.gserviceaccount.com"
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+CALLER_ACCOUNT="user@example.com"
 
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="$CLOUD_RUN_SA" \
-  --role="roles/chronicle.viewer" \
-  --condition=None
-```
-
-### Vertex AI Reasoning Engine service agent
-`service-123456789012@gcp-sa-aiplatform-re.iam.gserviceaccount.com` executes inside the Vertex AI Agent Engine runtime (`9876543210987654321`) to resolve the connector metadata from Agent Registry and Discovery Engine and invoke Gemini:
-
-```bash
-PROJECT_ID="your-gcp-project-id"
-RE_SERVICE_AGENT="serviceAccount:service-123456789012@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
-
-for ROLE in \
-  "roles/aiplatform.user" \
-  "roles/agentregistry.viewer" \
-  "roles/discoveryengine.viewer" \
-  "roles/chronicle.viewer" \
-  "roles/mcp.toolUser"; do
-  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-    --member="$RE_SERVICE_AGENT" \
-    --role="$ROLE" \
-    --condition=None
+for MEMBER in \
+  "user:${CALLER_ACCOUNT}" \
+  "serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  "serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"; do
+  for ROLE in \
+    "roles/discoveryengine.viewer" \
+    "roles/agentregistry.viewer" \
+    "roles/chronicle.viewer" \
+    "roles/aiplatform.user" \
+    "roles/mcp.toolUser" \
+    "roles/serviceusage.serviceUsageConsumer"; do
+    gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+      --member="$MEMBER" \
+      --role="$ROLE" \
+      --condition=None
+  done
 done
 ```
 
 ### Cloud Run service invoker bindings (`--no-allow-unauthenticated`)
-`secops-hairpin-mcp` is deployed with `--no-allow-unauthenticated`. Only authorized principals with `roles/run.invoker` can invoke the Cloud Run Hairpin MCP proxy:
+
+Only principals with `roles/run.invoker` on the service can invoke the proxy. The Discovery Engine service agent is included so Gemini Enterprise can list tools through the connector:
 
 ```bash
 PROJECT_ID="your-gcp-project-id"
-PROJECT_NUMBER="123456789012"
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
 REGION="us-central1"
 SERVICE_NAME="secops-hairpin-mcp"
 CALLER_ACCOUNT="user@example.com"
@@ -97,6 +103,9 @@ for MEMBER in \
     --role="roles/run.invoker"
 done
 ```
+
+> [!NOTE]
+> The end-to-end flow was validated in a development project where some identities already held additional roles. If a step fails with `PERMISSION_DENIED`, the error message names the missing permission and the identity; add the matching role and rerun that step.
 
 ---
 
@@ -178,10 +187,49 @@ curl -s -X POST \
   }'
 ```
 
-Verified response:
+Example response (rule names come from the development tenant; yours will differ):
 
 ```json
 {
   "output": "Here are the details for the 2 detection rules:\n\n1.  **Rule Display Name:** `producer_recon_environment_enumeration_network_cisa_report`\n    **Severity:** `Low`\n2.  **Rule Display Name:** `high_risk_user_download_executable_from_macro`\n    **Severity:** `High`\n\nYes, `create_feed` is present in my available tools."
 }
+```
+
+---
+
+## 6. Teardown
+
+`just teardown SERVICE_NAME COLLECTION_ID` runs the deletions below and reads `REASONING_ENGINE_ID` from `.env`. The Discovery Engine collection has no `gcloud` command; deleting it also removes the synced Agent Registry entry. Both API deletions return long-running operations that can take several minutes to complete after the resource disappears from listings.
+
+```bash
+PROJECT_ID="your-gcp-project-id"
+REGION="us-central1"
+SERVICE_NAME="secops-hairpin-mcp"
+COLLECTION_ID="secops-hairpin-mcp"
+REASONING_ENGINE_NAME="projects/123456789012/locations/us-central1/reasoningEngines/9876543210987654321"
+ACCESS_TOKEN="$(direnv exec . gcloud auth print-access-token)"
+
+curl -s -X DELETE \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  "https://${REGION}-aiplatform.googleapis.com/v1beta1/${REASONING_ENGINE_NAME}?force=true"
+
+curl -s -X DELETE \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "X-Goog-User-Project: ${PROJECT_ID}" \
+  "https://discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_ID}/locations/global/collections/${COLLECTION_ID}"
+
+gcloud run services delete "$SERVICE_NAME" --project="$PROJECT_ID" --region="$REGION" --quiet
+```
+
+Remaining artifacts, left in place by the recipe:
+
+```bash
+PROJECT_ID="your-gcp-project-id"
+REGION="us-central1"
+SERVICE_NAME="secops-hairpin-mcp"
+STAGING_BUCKET="gs://${PROJECT_ID}-agent-engine-staging"
+
+gcloud storage rm -r "$STAGING_BUCKET"
+gcloud artifacts docker images delete "${REGION}-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/${SERVICE_NAME}" --delete-tags --quiet
+gcloud storage rm -r "gs://run-sources-${PROJECT_ID}-${REGION}/services/${SERVICE_NAME}"
 ```
