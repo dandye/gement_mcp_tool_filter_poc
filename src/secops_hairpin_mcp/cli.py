@@ -7,7 +7,7 @@ import typer
 from dotenv import load_dotenv
 from rich.console import Console
 
-# Resolve repo root (src/gement_mcp_tool_filter_poc/cli.py -> parents[2])
+# Resolve repo root (src/secops_hairpin_mcp/cli.py -> parents[2])
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 load_dotenv(REPO_ROOT / ".env")
@@ -15,7 +15,7 @@ load_dotenv(REPO_ROOT / ".env")
 console = Console()
 
 app = typer.Typer(
-    name="gement-mcp-tool-filter-poc",
+    name="hairpin-mcp",
     help="CLI for the Gemini Enterprise Hairpin MCP Proxy and ADK Agent",
     add_completion=True,
     rich_markup_mode="rich",
@@ -75,7 +75,7 @@ def list_connectors_cmd(
 
   from rich.table import Table
 
-  from gement_mcp_tool_filter_poc.agent import list_connectors
+  from secops_hairpin_mcp.agent import list_connectors
 
   try:
     connectors = list_connectors(
@@ -164,8 +164,8 @@ def register_connector_cmd(
   import json
   import os
 
-  from gement_mcp_tool_filter_poc.agent import DEFAULT_PROJECT_ID
-  from gement_mcp_tool_filter_poc.agent import register_hairpin_connector
+  from secops_hairpin_mcp.agent import DEFAULT_PROJECT_ID
+  from secops_hairpin_mcp.agent import register_hairpin_connector
 
   resolved_project = (
       project
@@ -250,10 +250,10 @@ def run_agent_cmd(
   from google.adk.runners import InMemoryRunner
   from google.genai import types
 
-  from gement_mcp_tool_filter_poc.agent import DEFAULT_LOCATION
-  from gement_mcp_tool_filter_poc.agent import create_agent
-  from gement_mcp_tool_filter_poc.agent import resolve_mcp_endpoint
-  from gement_mcp_tool_filter_poc.agent import resolve_project_id
+  from secops_hairpin_mcp.agent import DEFAULT_LOCATION
+  from secops_hairpin_mcp.agent import create_agent
+  from secops_hairpin_mcp.agent import resolve_mcp_endpoint
+  from secops_hairpin_mcp.agent import resolve_project_id
 
   console.print(
       "[bold cyan]Initializing ADK agent with Hairpin MCP connector..."
@@ -352,9 +352,9 @@ def deploy_reasoning_engine_cmd(
   import vertexai
   from vertexai.preview import reasoning_engines
 
-  from gement_mcp_tool_filter_poc.agent import DEFAULT_MCP_SERVER_NAME
-  from gement_mcp_tool_filter_poc.agent import ensure_staging_bucket
-  from gement_mcp_tool_filter_poc.agent import resolve_project_id
+  from secops_hairpin_mcp.agent import DEFAULT_MCP_SERVER_NAME
+  from secops_hairpin_mcp.agent import ensure_staging_bucket
+  from secops_hairpin_mcp.agent import resolve_project_id
 
   project = resolve_project_id(project)
 

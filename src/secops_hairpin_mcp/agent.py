@@ -13,7 +13,7 @@ from google.adk.tools.base_toolset import BaseToolset
 from google.auth import default
 from google.genai import types
 
-from gement_mcp_tool_filter_poc.hairpin import build_mcp_auth_headers
+from secops_hairpin_mcp.hairpin import build_mcp_auth_headers
 
 logger = logging.getLogger(__name__)
 

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "gement-mcp-tool-filter-poc"
+name = "secops-hairpin-mcp"
 version = "0.1.0"
 description = "Cloud Run Hairpin MCP proxy that strips Google SecOps OneMCP tool schemas for Gemini Enterprise connectors and ADK agents"
 readme = "README.md"
@@ -41,7 +41,7 @@ dev = [
 ]
 
 [project.scripts]
-gement-mcp-tool-filter-poc = "gement_mcp_tool_filter_poc.cli:app"
+hairpin-mcp = "secops_hairpin_mcp.cli:app"
 
 [tool.pyink]
 line-length = 80

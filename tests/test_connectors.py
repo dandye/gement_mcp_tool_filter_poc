@@ -5,12 +5,12 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from gement_mcp_tool_filter_poc.agent import ensure_staging_bucket
-from gement_mcp_tool_filter_poc.agent import list_connectors
-from gement_mcp_tool_filter_poc.agent import register_hairpin_connector
-from gement_mcp_tool_filter_poc.agent import resolve_connector_mcp_url
-from gement_mcp_tool_filter_poc.agent import resolve_mcp_endpoint
-from gement_mcp_tool_filter_poc.cli import app
+from secops_hairpin_mcp.agent import ensure_staging_bucket
+from secops_hairpin_mcp.agent import list_connectors
+from secops_hairpin_mcp.agent import register_hairpin_connector
+from secops_hairpin_mcp.agent import resolve_connector_mcp_url
+from secops_hairpin_mcp.agent import resolve_mcp_endpoint
+from secops_hairpin_mcp.cli import app
 
 runner = CliRunner()
 
@@ -26,9 +26,7 @@ def test_list_connectors_search_success():
       }
   ]
 
-  with patch(
-      "gement_mcp_tool_filter_poc.agent.AgentRegistry"
-  ) as mock_registry_cls:
+  with patch("secops_hairpin_mcp.agent.AgentRegistry") as mock_registry_cls:
     mock_registry_instance = MagicMock()
     mock_registry_instance.search_mcp_servers.return_value = {
         "mcpServers": mock_servers
@@ -46,9 +44,7 @@ def test_list_connectors_search_success():
 
 def test_list_connectors_empty():
   """Verifies list_connectors handles empty response gracefully."""
-  with patch(
-      "gement_mcp_tool_filter_poc.agent.AgentRegistry"
-  ) as mock_registry_cls:
+  with patch("secops_hairpin_mcp.agent.AgentRegistry") as mock_registry_cls:
     mock_registry_instance = MagicMock()
     mock_registry_instance.search_mcp_servers.return_value = {}
     mock_registry_instance.list_mcp_servers.return_value = {}
@@ -74,12 +70,10 @@ def test_resolve_connector_mcp_url():
 
   with (
       patch(
-          "gement_mcp_tool_filter_poc.agent.default",
+          "secops_hairpin_mcp.agent.default",
           return_value=(mock_creds, "test-proj"),
       ),
-      patch(
-          "gement_mcp_tool_filter_poc.agent.httpx.get", return_value=mock_resp
-      ),
+      patch("secops_hairpin_mcp.agent.httpx.get", return_value=mock_resp),
   ):
     url = resolve_connector_mcp_url(
         project_id="test-proj",
@@ -101,11 +95,11 @@ def test_register_hairpin_connector():
 
   with (
       patch(
-          "gement_mcp_tool_filter_poc.agent.default",
+          "secops_hairpin_mcp.agent.default",
           return_value=(mock_creds, "test-proj"),
       ),
       patch(
-          "gement_mcp_tool_filter_poc.agent.httpx.post", return_value=mock_resp
+          "secops_hairpin_mcp.agent.httpx.post", return_value=mock_resp
       ) as mock_post,
   ):
     op = register_hairpin_connector(
@@ -130,7 +124,7 @@ def test_cli_list_connectors_table():
   ]
 
   with patch(
-      "gement_mcp_tool_filter_poc.agent.list_connectors",
+      "secops_hairpin_mcp.agent.list_connectors",
       return_value=mock_servers,
   ):
     result = runner.invoke(app, ["list-connectors", "--project", "test-proj"])
@@ -142,7 +136,7 @@ def test_cli_list_connectors_table():
 def test_cli_register_connector():
   """Verifies CLI register-connector invokes register_hairpin_connector."""
   with patch(
-      "gement_mcp_tool_filter_poc.agent.register_hairpin_connector",
+      "secops_hairpin_mcp.agent.register_hairpin_connector",
       return_value={"name": "operations/123", "done": False},
   ):
     result = runner.invoke(
@@ -216,7 +210,7 @@ def test_resolve_mcp_endpoint_precedence(monkeypatch):
   monkeypatch.delenv("HAIRPIN_MCP_URL")
   monkeypatch.setenv("MCP_SERVER_NAME", "secops-hairpin-mcp")
   with patch(
-      "gement_mcp_tool_filter_poc.agent.resolve_connector_mcp_url",
+      "secops_hairpin_mcp.agent.resolve_connector_mcp_url",
       return_value="https://run.example.com/mcp",
   ) as mock_resolve:
     url, source = resolve_mcp_endpoint(None, "test-proj")
@@ -229,7 +223,7 @@ def test_resolve_mcp_endpoint_precedence(monkeypatch):
   )
 
   with patch(
-      "gement_mcp_tool_filter_poc.agent.resolve_connector_mcp_url",
+      "secops_hairpin_mcp.agent.resolve_connector_mcp_url",
       return_value=None,
   ):
     url, source = resolve_mcp_endpoint(None, "test-proj")

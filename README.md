@@ -63,7 +63,7 @@ In non-interactive shells (CI, scripts, coding agents) the direnv hook does not 
 
 ### 2. Deploy the Hairpin MCP proxy to Cloud Run
 
-Deploy the FastAPI proxy (`src/gement_mcp_tool_filter_poc/hairpin.py`) to Cloud Run with `--no-allow-unauthenticated`:
+Deploy the FastAPI proxy (`src/secops_hairpin_mcp/hairpin.py`) to Cloud Run with `--no-allow-unauthenticated`:
 
 ```bash
 SERVICE_NAME="secops-hairpin-mcp"
@@ -167,7 +167,7 @@ The recipe leaves the staging bucket, the container images in Artifact Registry,
 │   ├── deployment.md                   # Deployment inventory and verification runbook
 │   └── hairpin_mcp_deployment_guide.md # Standalone step-by-step customer guide
 ├── src/
-│   └── gement_mcp_tool_filter_poc/
+│   └── secops_hairpin_mcp/
 │       ├── agent.py      # Gemini Enterprise connector resolution & ADK agent factory
 │       ├── cli.py        # Typer + Rich CLI
 │       ├── hairpin.py    # Cloud Run Hairpin MCP proxy server

@@ -65,7 +65,7 @@ typecheck:
 
 # Run project CLI
 run *args:
-  uv run gement-mcp-tool-filter-poc "$@"
+  uv run hairpin-mcp "$@"
 
 # Deploy the Hairpin MCP proxy as an IAM-authenticated Cloud Run service
 deploy-cloud-run service_name="secops-hairpin-mcp" *args:
@@ -149,23 +149,23 @@ setup-iam account="user@example.com" service_name="secops-hairpin-mcp":
 
 # Register the deployed Cloud Run Hairpin MCP proxy in Gemini Enterprise
 register-connector *args:
-  uv run gement-mcp-tool-filter-poc register-connector "$@"
+  uv run hairpin-mcp register-connector "$@"
 
 # List MCP connectors registered in Gemini Enterprise Agent Registry
 list-connectors *args:
-  uv run gement-mcp-tool-filter-poc list-connectors "$@"
+  uv run hairpin-mcp list-connectors "$@"
 
 # List MCP connectors in JSON format
 list-connectors-json *args:
-  uv run gement-mcp-tool-filter-poc list-connectors --json "$@"
+  uv run hairpin-mcp list-connectors --json "$@"
 
 # Run vanilla ADK agent locally against the Hairpin MCP connector
 run-agent prompt="What tools are available to you in SecOps?" *args:
-  uv run gement-mcp-tool-filter-poc run-agent "$@"
+  uv run hairpin-mcp run-agent "$@"
 
 # Deploy vanilla ADK agent using the Hairpin MCP connector to Vertex AI Agent Engine
 deploy-reasoning-engine *args:
-  uv run gement-mcp-tool-filter-poc deploy-reasoning-engine "$@"
+  uv run hairpin-mcp deploy-reasoning-engine "$@"
 
 # Delete the Cloud Run service, the Gemini Enterprise connector, and the
 # reasoning engine named by REASONING_ENGINE_ID; print what remains

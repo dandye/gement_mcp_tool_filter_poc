@@ -19,4 +19,4 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8080
 
-CMD ["uvicorn", "gement_mcp_tool_filter_poc.server:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "secops_hairpin_mcp.server:app", "--host", "0.0.0.0", "--port", "8080"]

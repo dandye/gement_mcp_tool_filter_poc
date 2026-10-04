@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Test & Lint (gement_mcp_tool_filter_poc)
+    name: Test & Lint (secops_hairpin_mcp)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

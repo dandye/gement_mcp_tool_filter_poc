@@ -7,14 +7,14 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from gement_mcp_tool_filter_poc.agent import create_agent
-from gement_mcp_tool_filter_poc.hairpin import STRIPPED_INPUT_SCHEMA
-from gement_mcp_tool_filter_poc.hairpin import build_mcp_auth_headers
-from gement_mcp_tool_filter_poc.hairpin import hairpin_app
-from gement_mcp_tool_filter_poc.hairpin import proxy
-from gement_mcp_tool_filter_poc.hairpin import sanitize_tools_list_response
-from gement_mcp_tool_filter_poc.hairpin import strip_tool_schemas
-from gement_mcp_tool_filter_poc.server import app as server_app
+from secops_hairpin_mcp.agent import create_agent
+from secops_hairpin_mcp.hairpin import STRIPPED_INPUT_SCHEMA
+from secops_hairpin_mcp.hairpin import build_mcp_auth_headers
+from secops_hairpin_mcp.hairpin import hairpin_app
+from secops_hairpin_mcp.hairpin import proxy
+from secops_hairpin_mcp.hairpin import sanitize_tools_list_response
+from secops_hairpin_mcp.hairpin import strip_tool_schemas
+from secops_hairpin_mcp.server import app as server_app
 
 
 def test_strip_tool_schemas_removes_both_input_and_output():
@@ -137,11 +137,11 @@ def test_build_mcp_auth_headers_and_forwarded_oauth():
 
   with (
       patch(
-          "gement_mcp_tool_filter_poc.hairpin.google.auth.default",
+          "secops_hairpin_mcp.hairpin.google.auth.default",
           return_value=(mock_creds, "your-gcp-project-id"),
       ),
       patch(
-          "gement_mcp_tool_filter_poc.hairpin.id_token.fetch_id_token",
+          "secops_hairpin_mcp.hairpin.id_token.fetch_id_token",
           return_value="eyJ-fake-oidc-token",
       ),
   ):

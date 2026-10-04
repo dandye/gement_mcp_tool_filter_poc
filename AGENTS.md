@@ -52,7 +52,7 @@ This repository strictly complies with the **Google Python Style Guide**:
 │   ├── deployment.md                   # Deployment inventory and verification runbook
 │   └── hairpin_mcp_deployment_guide.md # Standalone customer guide for Hairpin MCP
 ├── src/
-│   └── gement_mcp_tool_filter_poc/
+│   └── secops_hairpin_mcp/
 │       ├── __init__.py
 │       ├── __main__.py   # Module execution entrypoint
 │       ├── agent.py      # Gemini Enterprise connector helpers and ADK agent factory
