@@ -82,6 +82,8 @@ This repository strictly complies with the **Google Python Style Guide**:
 | **Setup IAM** | `just setup-iam` | Configure required IAM and Cloud Run invoker bindings |
 | **Register Connector** | `just register-connector` | Register Hairpin MCP proxy in Gemini Enterprise |
 | **List Connectors** | `just list-connectors` | List Gemini Enterprise MCP connectors |
+| **List Connectors (JSON)** | `just list-connectors-json` | List Gemini Enterprise MCP connectors as JSON |
 | **Run Agent** | `just run-agent` | Run vanilla ADK agent locally against Hairpin MCP |
 | **Deploy Reasoning Engine** | `just deploy-reasoning-engine` | Deploy vanilla ADK agent to Vertex AI Agent Engine |
+| **Teardown** | `just teardown` | Delete the reasoning engine, connector collection, and Cloud Run service |
 | **Clean** | `just clean` | Remove cache files, coverage reports, and build artifacts |
